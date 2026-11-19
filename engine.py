@@ -497,9 +497,13 @@ def make_models():
         "Linear Regression": LinearRegression(),
         "Decision Tree": DecisionTreeRegressor(random_state=42, max_depth=None,
                                                min_samples_leaf=2),
-        "Random Forest": RandomForestRegressor(n_estimators=300, max_depth=12,
-                                               min_samples_leaf=2, random_state=42, n_jobs=-1),
-    }
+        "Random Forest": RandomForestRegressor(
+    n_estimators=100,
+    max_depth=10,
+    min_samples_leaf=2,
+    random_state=42,
+    n_jobs=1
+),
 
 
 
