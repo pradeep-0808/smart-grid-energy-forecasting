@@ -37,10 +37,14 @@
     setTimeout(() => el.remove(), 4000);
   }
 
-  async function api(path, opts) {
-    const res = await fetch(path, opts);
+  
+const API_BASE = 'https://smart-grid-energy-forecasting.onrender.com';
+
+async function api(path, opts) {
+    const res = await fetch(API_BASE + path, opts);
     const ctype = res.headers.get('content-type') || '';
     const body = ctype.includes('application/json') ? await res.json() : await res.text();
+
     if (!res.ok) {
       const detail = (body && body.detail) || (typeof body === 'string' ? body : 'Request failed');
       const err = new Error(Array.isArray(detail) ? detail.map(d => d.msg).join('; ') : detail);
@@ -48,8 +52,10 @@
       err.body = body;
       throw err;
     }
+
     return body;
-  }
+}
+
 
   function download(url, name) {
     const a = document.createElement('a');
