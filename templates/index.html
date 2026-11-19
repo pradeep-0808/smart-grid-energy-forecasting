@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Smart Grid Energy Forecasting &amp; Analysis</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+<link rel="stylesheet" href="/static/vendor/bootstrap.min.css" />
+<link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+<div class="app">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="side" id="side">
+    <div class="side-brand">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+        <rect x="1.5" y="1.5" width="21" height="21" rx="5" stroke="#22c99b" stroke-width="1.5"/>
+        <path d="M12.8 5.6 8.6 12.4h2.9l-1.1 6 4.6-7.2h-3l1.3-5.6Z" fill="#22c99b"/>
+      </svg>
+      <div><b>Smart Grid</b><span>Energy Analytics</span></div>
+    </div>
+    <nav class="side-nav">
+      <div class="side-label">Platform</div>
+      <button class="nav-item active" data-page="home"><span class="ico">◧</span>Home</button>
+      <button class="nav-item" data-page="dashboard"><span class="ico">▤</span>Dashboard</button>
+      <button class="nav-item" data-page="location"><span class="ico">◎</span>Location Explorer</button>
+      <button class="nav-item" data-page="upload"><span class="ico">⬆</span>Dataset Upload</button>
+      <div class="side-label">Machine learning</div>
+      <button class="nav-item" data-page="predictions"><span class="ico">◇</span>ML Predictions</button>
+      <button class="nav-item" data-page="comparison"><span class="ico">≡</span>Model Comparison</button>
+      <button class="nav-item" data-page="forecast"><span class="ico">◈</span>Future Forecast</button>
+      <div class="side-label">Analysis</div>
+      <button class="nav-item" data-page="historical"><span class="ico">◱</span>Historical Analysis</button>
+      <button class="nav-item" data-page="live"><span class="ico">◉</span>Live Monitoring</button>
+      <button class="nav-item" data-page="reports"><span class="ico">⤓</span>Reports</button>
+      <div class="side-label">Project</div>
+      <button class="nav-item" data-page="about"><span class="ico">ⓘ</span>About Project</button>
+    </nav>
+    <div class="side-foot">
+      <div><b>Dataset</b> <span id="sfDataset">none selected</span></div>
+      <div style="margin-top:5px"><span class="dot-live off" id="sfDot"></span><span id="sfStatus">checking API…</span></div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="topbar">
+      <button class="menu-btn" id="menuBtn">☰</button>
+      <div>
+        <h1 id="pageTitle">Home</h1>
+        <div class="crumb" id="pageCrumb">Smart Grid Energy Consumption Forecasting &amp; Analysis</div>
+      </div>
+      <div class="top-right">
+        <select id="datasetSelect" style="width:230px" title="Active dataset"></select>
+        <span class="chip" id="grainChip">no data</span>
+        <span class="chip" id="apiChip">API ·</span>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ================= HOME ================= -->
+      <section class="page active" id="page-home">
+        <div class="hero">
+          <h2>ML-based <em>smart grid</em> energy consumption forecasting &amp; analysis</h2>
+          <p>Load genuine energy data by location, or upload your own meter dataset. The platform
+             cleans and resamples the data, engineers time-series features, trains
+             Linear Regression, Decision Tree and Random Forest on the same chronological split,
+             compares them with MAE / RMSE / R², and forecasts future consumption.</p>
+          <div class="hero-actions">
+            <button class="btn" data-goto="location">Explore by location</button>
+            <button class="btn ghost" data-goto="upload">Upload your dataset</button>
+            <button class="btn ghost" data-goto="dashboard">Open dashboard</button>
+          </div>
+          <div class="flow">
+            <b>Ingest</b> → <b>Clean &amp; resample</b> → <b>Feature engineering</b>
+            → <b>3 models</b> → <b>Metrics</b> → <b>Forecast</b> → <b>Reports</b>
+          </div>
+        </div>
+
+        <div class="grid g2" style="margin-bottom:12px">
+          <div class="opt-card">
+            <div class="opt-tag">Option A</div>
+            <h3>Location-based analysis</h3>
+            <p>Country-level electricity data from Our World in Data (annual, TWh). Real values only —
+               if a series is too short for time-series ML, the platform says so instead of inventing data.</p>
+            <div class="btn-row">
+              <input type="search" id="homeLocInput" placeholder="Country, e.g. India" style="flex:1;min-width:150px" />
+              <button class="btn sm" id="homeLocBtn">Search</button>
+              <button class="btn sm ghost" data-goto="location">Full explorer</button>
+            </div>
+            <div id="homeLocResults" style="margin-top:9px"></div>
+          </div>
+          <div class="opt-card">
+            <div class="opt-tag">Option B</div>
+            <h3>Dataset-based analysis</h3>
+            <p>Upload CSV or Excel meter data (hourly, daily, monthly). Column detection is automatic,
+               with manual override if the guess is wrong. Original file is preserved.</p>
+            <div class="upload-zone" id="homeUpload">
+              <b>Drop a CSV / XLSX here</b>
+              <span>or click to browse · processed locally on this server</span>
+            </div>
+            <input type="file" id="homeFile" accept=".csv,.xlsx,.xls,.tab,.txt" hidden />
+          </div>
+        </div>
+
+        <div class="grid g4">
+          <div class="metric"><div class="k">Models</div><div class="v">3</div>
+            <div class="hint">Linear Regression · Decision Tree · Random Forest</div></div>
+          <div class="metric cyan"><div class="k">Metrics</div><div class="v">MAE · RMSE · R²</div>
+            <div class="hint">Same chronological 80/20 split for every model</div></div>
+          <div class="metric blue"><div class="k">Intervals</div><div class="v">5</div>
+            <div class="hint">Hourly, daily, weekly, monthly, yearly</div></div>
+          <div class="metric amber"><div class="k">Live meters</div><div class="v" id="homeLiveCount">0</div>
+            <div class="hint">Readings persisted in SQLite</div></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <div class="card-h"><h3>Bundled dataset</h3>
+            <span class="sub">Real CEEW smart-meter data used by the project notebook</span>
+            <div class="right"><button class="btn sm" id="loadSeedBtn">Load CEEW Mathura data</button>
+            <button class="btn sm ghost" id="loadSeedAllBtn">Load Mathura + Bareilly</button></div>
+          </div>
+          <div class="card-b" style="font-size:12px;color:var(--dim)">
+            Source: CEEW Smart Meter Data, Harvard Dataverse <span class="mono">doi:10.7910/DVN/GOCHJH</span>
+            (CC0 1.0) — Mathura and Bareilly aggregated daily kWh per meter.
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= DASHBOARD ================= -->
+      <section class="page" id="page-dashboard">
+        <div class="phead"><h2>Dashboard</h2>
+          <p>Summary of the active dataset plus live meter state. All figures recompute when you change
+             the dataset or date range.</p></div>
+        <div class="grid g4" id="dashMetrics" style="margin-bottom:12px"></div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-h"><h3>Consumption history</h3>
+            <div class="right">
+              <div class="pill-tabs" id="dashTabs">
+                <button data-iv="daily" class="on">Daily</button><button data-iv="weekly">Weekly</button>
+                <button data-iv="monthly">Monthly</button><button data-iv="yearly">Yearly</button>
+              </div>
+              <input type="date" id="dashStart" style="width:140px" title="From" />
+              <input type="date" id="dashEnd" style="width:140px" title="To" />
+              <button class="btn sm ghost" id="dashApply">Apply</button>
+            </div>
+          </div>
+          <div class="card-b"><div class="chart-box h-300"><canvas id="chDash"></canvas></div></div>
+        </div>
+        <div class="grid g2u">
+          <div class="card">
+            <div class="card-h"><h3>Historical vs predicted</h3>
+              <span class="sub" id="dashHvFSub">trained run</span></div>
+            <div class="card-b"><div class="chart-box h-260"><canvas id="chDashHvF"></canvas></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Live monitoring</h3><div class="right">
+              <span class="chip" id="dashLiveChip">—</span></div></div>
+            <div class="card-b"><div class="chart-box h-260"><canvas id="chDashLive"></canvas></div>
+              <div id="dashLiveEmpty" class="empty" style="margin-top:8px;display:none">
+                No live readings yet. Open Live Monitoring to post a reading.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= LOCATION ================= -->
+      <section class="page" id="page-location">
+        <div class="phead"><h2>Location Explorer</h2>
+          <p>Search a country, inspect its real electricity series from Our World in Data, then import it
+             as a dataset for the ML pipeline. Annual country data rarely supports 3-model
+             time-series training — the platform will tell you when that is the case.</p></div>
+        <div class="grid g2u">
+          <div class="card">
+            <div class="card-h"><h3>Search</h3></div>
+            <div class="card-b">
+              <div class="grid g2" style="gap:10px">
+                <div class="field"><label>Country / area</label>
+                  <input type="search" id="locQuery" placeholder="e.g. India, Brazil, Germany" /></div>
+                <div class="field"><label>Metric</label>
+                  <select id="locMetric">
+                    <option value="electricity_generation">Electricity generation (TWh)</option>
+                    <option value="electricity_demand">Electricity demand (TWh)</option>
+                    <option value="per_capita_electricity">Electricity per capita (kWh/person)</option>
+                  </select></div>
+                <div class="field"><label>From year (optional)</label>
+                  <input type="number" id="locStart" placeholder="2000" min="1900" max="2100" /></div>
+                <div class="field"><label>To year (optional)</label>
+                  <input type="number" id="locEnd" placeholder="2025" min="1900" max="2100" /></div>
+              </div>
+              <div class="btn-row"><button class="btn" id="locSearchBtn">Search country</button>
+                <button class="btn ghost" id="locClearBtn">Clear</button></div>
+              <div id="locResults" style="margin-top:12px"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Source</h3></div>
+            <div class="card-b">
+              <div class="kv"><span>Dataset</span><b>Our World in Data — Energy</b></div>
+              <div class="kv"><span>Underlying</span><b>Energy Institute SRWE + Ember</b></div>
+              <div class="kv"><span>Resolution</span><b>Annual, per country</b></div>
+              <div class="kv"><span>Licence</span><b>CC BY 4.0</b></div>
+              <div class="note warn" style="margin-top:11px">
+                A location name alone carries no consumption readings. This explorer returns only what
+                the published dataset contains, at annual country resolution. For city or area level
+                (and for hourly/daily modelling), upload your own dataset.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="locDataCard" style="margin-top:12px;display:none">
+          <div class="card-h"><h3 id="locDataTitle">Country series</h3>
+            <span class="sub" id="locDataSub"></span>
+            <div class="right"><button class="btn sm" id="locImportBtn">Import as dataset</button></div></div>
+          <div class="card-b">
+            <div class="grid g4" id="locStats" style="margin-bottom:12px"></div>
+            <div class="chart-box h-300"><canvas id="chLoc"></canvas></div>
+            <div id="locNote" style="margin-top:10px"></div>
+          </div>
+        </div>
+        <div class="card" id="locTableCard" style="margin-top:12px;display:none">
+          <div class="card-h"><h3>Values</h3><span class="sub">as published</span></div>
+          <div class="card-b tbl-wrap" style="max-height:300px"><table class="tbl" id="locTable"></table></div>
+        </div>
+      </section>
+
+      <!-- ================= UPLOAD ================= -->
+      <section class="page" id="page-upload">
+        <div class="phead"><h2>Dataset Upload</h2>
+          <p>CSV or Excel. The file is stored unchanged; preprocessing happens on a copy so you can
+             re-run with different column mappings.</p></div>
+        <div class="card">
+          <div class="card-h"><h3>1 · Upload file</h3><span class="sub" id="upFileName"></span></div>
+          <div class="card-b">
+            <div class="upload-zone" id="upZone">
+              <b>Drop CSV / XLSX / XLS here</b><span>or click to browse · max 60 MB</span>
+            </div>
+            <input type="file" id="upFile" accept=".csv,.xlsx,.xls,.tab,.txt" hidden />
+          </div>
+        </div>
+
+        <div class="card" id="upProfileCard" style="margin-top:12px;display:none">
+          <div class="card-h"><h3>2 · Dataset profile</h3><span class="sub" id="upProfileSub"></span></div>
+          <div class="card-b">
+            <div class="grid g4" id="upStats" style="margin-bottom:12px"></div>
+            <div class="grid g2">
+              <div>
+                <div class="grid g2" style="gap:10px">
+                  <div class="field"><label>Timestamp column</label><select id="upTsCol"></select></div>
+                  <div class="field"><label>Consumption column (kWh)</label><select id="upValCol"></select></div>
+                </div>
+                <div class="grid g2" style="gap:10px">
+                  <div class="field"><label>Duplicate timestamps</label>
+                    <select id="upDup"><option value="sum">Sum values (multiple meters)</option>
+                      <option value="mean">Average values</option></select></div>
+                  <div class="field"><label>Meter value type</label>
+                    <select id="upCumulative"><option value="false">Interval energy (kWh)</option>
+                      <option value="true">Cumulative reading (take differences)</option></select></div>
+                </div>
+                <div class="btn-row">
+                  <button class="btn" id="upPreprocess">Preprocess &amp; validate</button>
+                  <button class="btn ghost" id="upRetrain">Train 3 models</button>
+                </div>
+                <div id="upDetectNote" style="margin-top:10px"></div>
+              </div>
+              <div>
+                <div class="legend-inline" style="margin-bottom:6px"><b style="color:var(--ink);font-size:12px">Columns &amp; types</b></div>
+                <div class="tbl-wrap" style="max-height:170px"><table class="tbl" id="upCols"></table></div>
+              </div>
+            </div>
+            <hr class="sep" />
+            <div class="legend-inline" style="margin-bottom:6px"><b style="color:var(--ink);font-size:12px">First 10 records</b></div>
+            <div class="tbl-wrap" style="max-height:280px"><table class="tbl" id="upHead"></table></div>
+            <div id="upPreprocessOut" style="margin-top:12px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= ML PREDICTIONS ================= -->
+      <section class="page" id="page-predictions">
+        <div class="phead"><h2>ML Predictions</h2>
+          <p>Actual vs predicted on the chronological hold-out. Charts use the stored predictions from
+             the trained run — nothing is recomputed on the client.</p></div>
+        <div id="predEmpty" class="empty">Select a dataset and run training first.</div>
+        <div id="predBody" style="display:none">
+          <div class="grid g4" id="predStats" style="margin-bottom:12px"></div>
+          <div class="card" style="margin-bottom:12px">
+            <div class="card-h"><h3>Actual vs predicted</h3>
+              <span class="sub" id="predSub"></span>
+              <div class="right"><div class="pill-tabs" id="predTabs">
+                <button data-model="Linear Regression">Linear Regression</button>
+                <button data-model="Decision Tree">Decision Tree</button>
+                <button data-model="Random Forest" class="on">Random Forest</button>
+              </div></div>
+            </div>
+            <div class="card-b"><div class="chart-box h-300"><canvas id="chPred"></canvas></div></div>
+          </div>
+          <div class="grid g2">
+            <div class="card">
+              <div class="card-h"><h3>Prediction error by model</h3><span class="sub">|actual − predicted|, kWh</span></div>
+              <div class="card-b"><div class="chart-box h-260"><canvas id="chErr"></canvas></div></div>
+            </div>
+            <div class="card">
+              <div class="card-h"><h3>Residual distribution</h3><span class="sub" id="residSub"></span></div>
+              <div class="card-b"><div class="chart-box h-260"><canvas id="chResid"></canvas></div></div>
+            </div>
+          </div>
+          <div class="card" style="margin-top:12px">
+            <div class="card-h"><h3>Hold-out predictions</h3>
+              <div class="right"><button class="btn sm ghost" id="predCsv">Download predictions CSV</button></div></div>
+            <div class="card-b tbl-wrap" style="max-height:340px"><table class="tbl" id="predTable"></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= COMPARISON ================= -->
+      <section class="page" id="page-comparison">
+        <div class="phead"><h2>Model Comparison</h2>
+          <p>Three algorithms, identical dataset, identical chronological split, identical test period.
+             The best model is the lowest test MAE.</p></div>
+        <div id="cmpEmpty" class="empty">Train models to see the comparison.</div>
+        <div id="cmpBody" style="display:none">
+          <div class="grid g4" id="cmpStats" style="margin-bottom:12px"></div>
+          <div class="grid g2">
+            <div class="card">
+              <div class="card-h"><h3>Comparison table</h3><div class="right">
+                <button class="btn sm ghost" data-report="comparison" data-fmt="csv">CSV</button>
+                <button class="btn sm ghost" data-report="comparison" data-fmt="pdf">PDF</button></div></div>
+              <div class="card-b tbl-wrap"><table class="tbl" id="cmpTable"></table></div>
+            </div>
+            <div class="card">
+              <div class="card-h"><h3>Metric comparison</h3>
+                <div class="right"><div class="pill-tabs" id="cmpTabs">
+                  <button data-metric="MAE" class="on">MAE</button>
+                  <button data-metric="RMSE">RMSE</button>
+                  <button data-metric="R2">R²</button></div></div></div>
+              <div class="card-b"><div class="chart-box h-260"><canvas id="chCmp"></canvas></div></div>
+            </div>
+          </div>
+          <div class="grid g2" style="margin-top:12px">
+            <div class="card">
+              <div class="card-h"><h3>Feature importance</h3><span class="sub" id="fiSub">Random Forest</span></div>
+              <div class="card-b"><div class="chart-box h-260"><canvas id="chFI"></canvas></div></div>
+            </div>
+            <div class="card">
+              <div class="card-h"><h3>Evaluation setup</h3></div>
+              <div class="card-b" id="cmpSetup"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= HISTORICAL ================= -->
+      <section class="page" id="page-historical">
+        <div class="phead"><h2>Historical Analysis</h2>
+          <p>Totals are sums of recorded interval energy (kWh). Intervals coarser than the source grain
+             are disabled — the platform will not manufacture detail that the data does not contain.</p></div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-h"><h3>Interval</h3>
+            <div class="right">
+              <div class="pill-tabs" id="histTabs">
+                <button data-iv="hourly">Hourly</button><button data-iv="daily" class="on">Daily</button>
+                <button data-iv="weekly">Weekly</button><button data-iv="monthly">Monthly</button>
+                <button data-iv="yearly">Yearly</button>
+              </div>
+              <input type="date" id="histStart" style="width:140px" /><input type="date" id="histEnd" style="width:140px" />
+              <button class="btn sm" id="histApply">Apply</button>
+              <button class="btn sm ghost" id="histCsv">CSV</button>
+              <button class="btn sm ghost" id="histPdf">PDF</button>
+            </div>
+          </div>
+          <div class="card-b"><div id="histBody"><div class="empty">Loading…</div></div></div>
+        </div>
+        <div class="grid g2">
+          <div class="card">
+            <div class="card-h"><h3>Distribution of interval values</h3><span class="sub">histogram</span></div>
+            <div class="card-b"><div class="chart-box h-260"><canvas id="chHist2"></canvas></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Peak vs average vs lowest</h3><span class="sub" id="histCmpSub"></span></div>
+            <div class="card-b"><div class="chart-box h-260"><canvas id="chPeak"></canvas></div></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div class="card-h"><h3>Bucket table</h3><span class="sub" id="histTableSub"></span></div>
+          <div class="card-b tbl-wrap" style="max-height:340px"><table class="tbl" id="histTable"></table></div>
+        </div>
+      </section>
+
+      <!-- ================= LIVE ================= -->
+      <section class="page" id="page-live">
+        <div class="phead"><h2>Live Monitoring</h2>
+          <p>Readings posted to <span class="mono">/live-api/readings</span> are stored in SQLite and
+             never synthesised. Use the poster below, or send them from your notebook / meter simulator.</p></div>
+        <div class="grid g4" id="liveStats" style="margin-bottom:12px"></div>
+        <div class="grid g2u">
+          <div class="card">
+            <div class="card-h"><h3>Live consumption</h3>
+              <div class="right">
+                <select id="liveMeterFilter" style="width:170px"><option value="">All meters</option></select>
+                <button class="btn sm ghost" id="liveRefresh">Refresh</button>
+                <label class="chip" style="cursor:pointer;gap:6px">
+                  <input type="checkbox" id="liveAuto" checked style="width:auto;margin:0" /> auto 5s</label>
+              </div>
+            </div>
+            <div class="card-b"><div id="liveEmpty" class="empty" style="display:none">No readings stored yet.</div>
+              <div class="chart-box h-260"><canvas id="chLive"></canvas></div>
+              <div class="sub" id="liveLast" style="margin-top:8px;font-size:11.5px;color:var(--dim)"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Post a reading</h3><span class="sub">POST /live-api/readings</span></div>
+            <div class="card-b">
+              <div class="field"><label>Meter ID</label><input type="text" id="liveMeter" value="SMART_METER_001" /></div>
+              <div class="field"><label>Energy consumption (kWh)</label><input type="number" id="liveKwh" step="0.01" min="0" placeholder="e.g. 148.25" /></div>
+              <div class="field"><label>Status</label><select id="liveStatus">
+                <option>ONLINE</option><option>IDLE</option><option>FAULT</option></select></div>
+              <div class="btn-row"><button class="btn" id="livePost">Send reading</button>
+                <button class="btn ghost" id="liveDelete">Clear all</button></div>
+              <div id="livePostOut" style="margin-top:10px"></div>
+            </div>
+          </div>
+        </div>
+        <div class="grid g2" style="margin-top:12px">
+          <div class="card">
+            <div class="card-h"><h3>Meters</h3><div class="right">
+              <button class="btn sm ghost" data-report="live" data-fmt="csv">CSV</button>
+              <button class="btn sm ghost" data-report="live" data-fmt="pdf">PDF</button></div></div>
+            <div class="card-b tbl-wrap" style="max-height:250px"><table class="tbl" id="liveMeters"></table></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Reading history</h3><span class="sub" id="liveHistSub"></span></div>
+            <div class="card-b tbl-wrap" style="max-height:250px"><table class="tbl" id="liveTable"></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= FORECAST ================= -->
+      <section class="page" id="page-forecast">
+        <div class="phead"><h2>Future Forecast</h2>
+          <p>Recursive one-step-ahead forecasting: each prediction is fed back as history, so no future
+             actual values are ever used.</p></div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-h"><h3>Configuration</h3></div>
+          <div class="card-b">
+            <div class="grid g4" style="gap:10px">
+              <div class="field"><label>Model</label><select id="fcModel">
+                <option value="best">Best performing model</option>
+                <option>Linear Regression</option><option>Decision Tree</option>
+                <option>Random Forest</option></select></div>
+              <div class="field"><label>Interval</label><select id="fcInterval">
+                <option value="hourly">Hourly</option><option value="daily" selected>Daily</option>
+                <option value="weekly">Weekly</option><option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option></select></div>
+              <div class="field"><label>Horizon</label><select id="fcHorizon">
+                <option value="1">Next 1</option><option value="7" selected>Next 7</option>
+                <option value="30">Next 30</option><option value="12">Next 12</option></select></div>
+              <div class="field"><label>&nbsp;</label>
+                <button class="btn" id="fcRun" style="width:100%">Generate forecast</button></div>
+            </div>
+            <div class="btn-row"><span class="sub" style="font-size:11.5px;color:var(--dim)" id="fcHint">
+              Hourly requires hourly-trained data; the platform refuses unsupported combinations.</span></div>
+          </div>
+        </div>
+        <div id="fcOut"><div class="empty">No forecast generated yet.</div></div>
+      </section>
+
+      <!-- ================= REPORTS ================= -->
+      <section class="page" id="page-reports">
+        <div class="phead"><h2>Reports</h2>
+          <p>Downloads are generated server-side from the stored run, the processed series or the
+             SQLite live table — the same numbers shown in the charts.</p></div>
+        <div class="grid g2">
+          <div class="card"><div class="card-h"><h3>Dataset analysis</h3></div>
+            <div class="card-b"><p class="sub" style="color:var(--dim);font-size:12px;margin:0 0 10px">
+              Profile of the uploaded file (rows, columns, dtypes, date range, missing cells).</p>
+              <div class="btn-row"><button class="btn sm ghost" data-report="dataset" data-fmt="csv">Original CSV</button>
+                <button class="btn sm ghost" data-report="dataset" data-fmt="pdf">PDF profile</button>
+                <button class="btn sm ghost" data-report="preprocessed" data-fmt="csv">Preprocessed CSV</button></div></div></div>
+          <div class="card"><div class="card-h"><h3>Model results</h3></div>
+            <div class="card-b"><p class="sub" style="color:var(--dim);font-size:12px;margin:0 0 10px">
+              MAE / RMSE / R² for all three models plus feature importance.</p>
+              <div class="btn-row"><button class="btn sm ghost" data-report="comparison" data-fmt="csv">Comparison CSV</button>
+                <button class="btn sm ghost" data-report="comparison" data-fmt="pdf">Comparison PDF</button></div></div></div>
+          <div class="card"><div class="card-h"><h3>Predictions &amp; forecast</h3></div>
+            <div class="card-b"><p class="sub" style="color:var(--dim);font-size:12px;margin:0 0 10px">
+              Hold-out predictions and the generated forecast (uses the Forecast page settings).</p>
+              <div class="btn-row"><button class="btn sm ghost" data-report="predictions" data-fmt="csv">Forecast CSV</button>
+                <button class="btn sm ghost" data-report="predictions" data-fmt="pdf">Forecast PDF</button></div></div></div>
+          <div class="card"><div class="card-h"><h3>Historical &amp; live</h3></div>
+            <div class="card-b"><p class="sub" style="color:var(--dim);font-size:12px;margin:0 0 10px">
+              Interval aggregation for the selected date range; live meter table.</p>
+              <div class="btn-row"><button class="btn sm ghost" id="repHistCsv">Historical CSV</button>
+                <button class="btn sm ghost" id="repHistPdf">Historical PDF</button>
+                <button class="btn sm ghost" data-report="live" data-fmt="csv">Live CSV</button>
+                <button class="btn sm ghost" data-report="live" data-fmt="pdf">Live PDF</button></div></div></div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div class="card-h"><h3>API endpoints</h3><span class="sub">interactive docs at /docs</span></div>
+          <div class="card-b tbl-wrap"><table class="tbl" id="endpointTable"></table></div>
+        </div>
+      </section>
+
+      <!-- ================= ABOUT ================= -->
+      <section class="page" id="page-about">
+        <div class="phead"><h2>About this project</h2>
+          <p>Final-year style academic platform: FastAPI + scikit-learn on the back end, Bootstrap +
+             Chart.js on the front end, SQLite for live readings and metadata.</p></div>
+        <div class="grid g2">
+          <div class="card"><div class="card-h"><h3>Pipeline</h3></div><div class="card-b" id="aboutPipeline"></div></div>
+          <div class="card"><div class="card-h"><h3>Data sources</h3></div><div class="card-b">
+            <div class="kv"><span>CEEW smart meter (bundled)</span><b>Harvard Dataverse · CC0 1.0</b></div>
+            <div class="kv"><span>Location data</span><b>OWID Energy · CC BY 4.0</b></div>
+            <div class="kv"><span>User uploads</span><b>stored unchanged in /uploads</b></div>
+            <div class="note warn" style="margin-top:11px">No weather, population or tariff series is ever
+              treated as electricity consumption. Unsupported combinations are reported, not filled in.</div>
+          </div></div>
+          <div class="card"><div class="card-h"><h3>Limitations</h3></div><div class="card-b">
+            <ul class="list-reset" id="aboutLimits" style="font-size:12.3px;color:var(--body)"></ul></div></div>
+          <div class="card"><div class="card-h"><h3>Live API contract</h3></div><div class="card-b">
+<pre class="mono" style="background:#08131f;border:1px solid var(--line);border-radius:7px;padding:12px;font-size:11.3px;color:#b8cfdd;overflow:auto;margin:0">POST /live-api/readings
+{
+  "meter_id": "SMART_METER_001",
+  "energy_consumption": 148.25,
+  "status": "ONLINE"
+}
+
+GET /live-api/readings?meter_id=&amp;limit=50
+GET /live-api/history?limit=200
+GET /live-api/meters</pre></div></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
