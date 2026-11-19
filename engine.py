@@ -504,6 +504,7 @@ def make_models():
     random_state=42,
     n_jobs=1
 ),
+    }
 
 
 
