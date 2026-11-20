@@ -370,6 +370,7 @@ GRAIN_RANK = {"hourly": 0, "daily": 1, "weekly": 2, "monthly": 3,
 
 
 
+
 def aggregate(dataset_id: str, interval: str, start=None, end=None) -> dict:
     prep = prepared(dataset_id)
     grain = prep["grain"]
@@ -394,16 +395,14 @@ def aggregate(dataset_id: str, interval: str, start=None, end=None) -> dict:
             "buckets": [],
         }
 
+    if start:
+        start_ts = pd.Timestamp(start)
+        series = series[series.dt >= start_ts]
 
-if start:
-    start_ts = pd.Timestamp(start)
-    series = series[series.dt >= start_ts]
-
-if end:
-    end_ts = pd.Timestamp(end)
-    end_ts = end_ts + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-    series = series[series.dt <= end_ts]
-
+    if end:
+        end_ts = pd.Timestamp(end)
+        end_ts = end_ts + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        series = series[series.dt <= end_ts]
 
     if series.empty:
         raise ValueError("No records fall inside the selected date range.")
