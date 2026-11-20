@@ -369,6 +369,7 @@ GRAIN_RANK = {"hourly": 0, "daily": 1, "weekly": 2, "monthly": 3,
               "yearly": 4, "annual": 4, "sparse": 5}
 
 
+
 def aggregate(dataset_id: str, interval: str, start=None, end=None) -> dict:
     prep = prepared(dataset_id)
     grain = prep["grain"]
@@ -376,6 +377,7 @@ def aggregate(dataset_id: str, interval: str, start=None, end=None) -> dict:
 
     if interval == "annual":
         interval = "yearly"
+
     if interval not in RULES:
         raise ValueError(f"interval must be one of {list(RULES)}")
 
@@ -384,38 +386,47 @@ def aggregate(dataset_id: str, interval: str, start=None, end=None) -> dict:
             "available": False,
             "interval": interval,
             "grain": grain,
-            "message": (f"The source data is {grain}-level, so {interval} totals cannot be "
-                        f"derived without inventing detail. Choose an interval at or above "
-                        f"{grain}, or upload a finer-grained dataset."),
+            "message": (
+                f"The source data is {grain}-level, so {interval} totals cannot be "
+                f"derived without inventing detail. Choose an interval at or above "
+                f"{grain}, or upload a finer-grained dataset."
+            ),
             "buckets": [],
         }
 
+    if start:
+        start_ts = pd.Timestamp(start)
 
-if start:
-    start_ts = pd.Timestamp(start)
-    if start_ts.tzinfo is None:
-        start_ts = start_ts.tz_localize("UTC")
-    else:
-        start_ts = start_ts.tz_convert("UTC")
+        if start_ts.tzinfo is None:
+            start_ts = start_ts.tz_localize("UTC")
+        else:
+            start_ts = start_ts.tz_convert("UTC")
 
-    series = series[series.dt >= start_ts]
+        series = series[series.dt >= start_ts]
 
-if end:
-    end_ts = pd.Timestamp(end)
-    if end_ts.tzinfo is None:
-        end_ts = end_ts.tz_localize("UTC")
-    else:
-        end_ts = end_ts.tz_convert("UTC")
+    if end:
+        end_ts = pd.Timestamp(end)
 
-    end_ts = end_ts + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-    series = series[series.dt <= end_ts]
+        if end_ts.tzinfo is None:
+            end_ts = end_ts.tz_localize("UTC")
+        else:
+            end_ts = end_ts.tz_convert("UTC")
+
+        end_ts = end_ts + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+        series = series[series.dt <= end_ts]
 
     if series.empty:
         raise ValueError("No records fall inside the selected date range.")
 
     rule = RULES[interval]
-    g = (series.set_index("dt")["kwh"].resample(rule)
-         .agg(["sum", "mean", "count"]).reset_index())
+
+    g = (
+        series.set_index("dt")["kwh"]
+        .resample(rule)
+        .agg(["sum", "mean", "count"])
+        .reset_index()
+    )
+
     g = g[g["count"] > 0]
 
     if interval == "hourly":
@@ -429,13 +440,23 @@ if end:
     else:
         labels = [str(d.year) for d in g["dt"]]
 
-    buckets = [{"label": lab, "date": d.strftime("%Y-%m-%d %H:%M"),
-                "total_kwh": round(float(s), 2), "avg_kwh": round(float(m), 2),
-                "records": int(c)}
-               for lab, d, s, m, c in zip(labels, g["dt"], g["sum"], g["mean"], g["count"])]
+    buckets = [
+        {
+            "label": lab,
+            "date": d.strftime("%Y-%m-%d %H:%M"),
+            "total_kwh": round(float(s), 2),
+            "avg_kwh": round(float(m), 2),
+            "records": int(c),
+        }
+        for lab, d, s, m, c in zip(
+            labels, g["dt"], g["sum"], g["mean"], g["count"]
+        )
+    ]
+
     totals = [b["total_kwh"] for b in buckets]
     peak_i = int(np.argmax(totals)) if totals else None
     low_i = int(np.argmin(totals)) if totals else None
+
     return {
         "available": True,
         "interval": interval,
@@ -448,13 +469,19 @@ if end:
             "average_kwh": round(float(np.mean(totals)), 2) if totals else None,
             "peak": buckets[peak_i] if peak_i is not None else None,
             "lowest": buckets[low_i] if low_i is not None else None,
-            "period": {"start": series.dt.min().strftime("%Y-%m-%d"),
-                       "end": series.dt.max().strftime("%Y-%m-%d")},
+            "period": {
+                "start": series.dt.min().strftime("%Y-%m-%d"),
+                "end": series.dt.max().strftime("%Y-%m-%d"),
+            },
         },
-        "note": ("Totals are sums of interval energy values (kWh). Average power for a bucket "
-                 "is total / hours in the bucket." if interval == "hourly" else
-                 "Totals are sums of recorded energy values in that bucket."),
+        "note": (
+            "Totals are sums of interval energy values (kWh). Average power for a bucket "
+            "is total / hours in the bucket."
+            if interval == "hourly"
+            else "Totals are sums of recorded energy values in that bucket."
+        ),
     }
+
 
 
 def distribution(dataset_id: str, bins=24) -> dict:
