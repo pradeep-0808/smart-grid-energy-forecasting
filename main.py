@@ -321,8 +321,6 @@ class LiveReading(BaseModel):
     meter_id: str = Field(..., min_length=1, max_length=64)
     energy_consumption: float = Field(..., ge=0)
     status: Optional[str] = "ONLINE"
-
-
 @app.post("/live-api/readings", tags=["live"])
 def post_live_reading(reading: LiveReading):
     if reading.energy_consumption < 0:
@@ -332,6 +330,76 @@ def post_live_reading(reading: LiveReading):
     return {"status": "success", "message": "Live electricity reading received.",
             "data": saved}
 
+_SIMULATOR_POSITIONS = {}
+
+@app.post("/live-api/simulator/start", tags=["live"])
+def start_dataset_simulator(dataset_id: str = Query(...)):
+    try:
+        prep = engine.prepared(dataset_id)
+        entry = engine.get(dataset_id)
+    except (KeyError, ValueError) as exc:
+        fail(400, str(exc))
+
+    series = prep["series"]
+
+    if series.empty:
+        fail(400, "No valid records available for simulation.")
+
+    _SIMULATOR_POSITIONS[dataset_id] = 0
+
+    return {
+        "status": "ready",
+        "dataset_id": dataset_id,
+        "filename": entry["meta"]["filename"],
+        "records": len(series),
+        "grain": prep["grain"],
+        "message": "Dataset simulator is ready."
+    }
+
+@app.post("/live-api/simulator/next", tags=["live"])
+def next_simulated_reading(dataset_id: str = Query(...)):
+    if dataset_id not in _SIMULATOR_POSITIONS:
+        fail(400, "Start the simulator first.")
+
+    try:
+        prep = engine.prepared(dataset_id)
+        entry = engine.get(dataset_id)
+    except (KeyError, ValueError) as exc:
+        fail(400, str(exc))
+
+    series = prep["series"]
+    position = _SIMULATOR_POSITIONS[dataset_id]
+
+    if position >= len(series):
+        return {
+            "status": "completed",
+            "message": "All dataset records have been simulated."
+        }
+
+    record = series.iloc[position]
+
+    meter_id = "SIM_" + dataset_id[:8].upper()
+    energy = float(record["kwh"])
+    source_timestamp = pd.Timestamp(record["dt"]).isoformat()
+
+    saved = db.add_reading(
+        meter_id,
+        energy,
+        "ONLINE",
+        source=f"dataset_simulator:{entry['meta']['filename']}"
+    )
+
+    _SIMULATOR_POSITIONS[dataset_id] = position + 1
+
+    return {
+        "status": "success",
+        "data": saved,
+        "source_timestamp": source_timestamp,
+        "progress": {
+            "current": position + 1,
+            "total": len(series)
+        }
+    }
 
 @app.get("/live-api/readings", tags=["live"])
 def get_live_readings(meter_id: Optional[str] = None, limit: int = Query(50, ge=1, le=1000),
