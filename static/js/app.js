@@ -213,30 +213,93 @@ async function api(path, opts) {
   });
 
   /* ---------------------------------------------------------------- upload */
-  async function uploadFile(file) {
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('file', file);
-    toast('Uploading ' + esc(file.name) + '…');
-    try {
-      const res = await api('/upload-dataset/', { method: 'POST', body: fd });
-      toast('Uploaded <b>' + esc(res.dataset.filename) + '</b> · ' + res.dataset.rows + ' rows × ' + res.dataset.columns + ' cols');
-      await refreshDatasets(res.dataset.id);
-      renderPreview(res.dataset.id);
-      goto('upload');
-    } catch (e) { toast('Upload failed: ' + e.message, 'err'); }
+
+async function uploadFile(fileList) {
+  const files = Array.from(fileList || []).filter(file =>
+    file.name.toLowerCase().endsWith('.csv')
+  );
+
+  if (!files.length) {
+    toast('Please select CSV files only.', 'err');
+    return;
   }
 
-  function wireDrop(zoneId, inputId) {
-    const zone = $(zoneId), input = $(inputId);
-    zone.addEventListener('click', () => input.click());
-    input.addEventListener('change', () => uploadFile(input.files[0]));
-    ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('drag'); }));
-    ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('drag'); }));
-    zone.addEventListener('drop', e => { if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]); });
+  let lastDatasetId = null;
+  let successCount = 0;
+
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append('file', file);
+
+    toast('Uploading ' + esc(file.name) + '…');
+
+    try {
+      const res = await api('/upload-dataset/', {
+        method: 'POST',
+        body: fd
+      });
+
+      successCount++;
+      lastDatasetId = res.dataset.id;
+
+      toast(
+        'Uploaded <b>' + esc(res.dataset.filename) +
+        '</b> · ' + res.dataset.rows + ' rows × ' +
+        res.dataset.columns + ' cols'
+      );
+
+    } catch (e) {
+      toast('Failed: ' + esc(file.name) + ' · ' + e.message, 'err');
+    }
   }
-  wireDrop('upZone', 'upFile');
-  wireDrop('homeUpload', 'homeFile');
+
+  if (successCount > 0) {
+    await refreshDatasets(lastDatasetId);
+    renderPreview(lastDatasetId);
+    goto('upload');
+  }
+
+  toast(successCount + ' of ' + files.length + ' files uploaded.');
+}
+
+function wireDrop(zoneId, inputId) {
+  const zone = $(zoneId);
+  const input = $(inputId);
+
+  input.multiple = true;
+  input.accept = '.csv';
+
+  zone.addEventListener('click', () => input.click());
+
+  input.addEventListener('change', () => {
+    uploadFile(input.files);
+    input.value = '';
+  });
+
+  ['dragenter', 'dragover'].forEach(ev =>
+    zone.addEventListener(ev, e => {
+      e.preventDefault();
+      zone.classList.add('drag');
+    })
+  );
+
+  ['dragleave', 'drop'].forEach(ev =>
+    zone.addEventListener(ev, e => {
+      e.preventDefault();
+      zone.classList.remove('drag');
+    })
+  );
+
+  zone.addEventListener('drop', e => {
+    if (e.dataTransfer.files.length) {
+      uploadFile(e.dataTransfer.files);
+    }
+  });
+}
+
+wireDrop('upZone', 'upFile');
+wireDrop('homeUpload', 'homeFile');
+
 
   /* ---------------------------------------------------------------- preview */
   async function renderPreview(datasetId, tsCol, valCol) {
