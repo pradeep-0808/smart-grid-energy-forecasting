@@ -390,12 +390,34 @@ def aggregate(dataset_id: str, interval: str, start=None, end=None) -> dict:
             "buckets": [],
         }
 
-    if start:
-        series = series[series.dt >= pd.Timestamp(start)]
-    if end:
-        series = series[series.dt <= pd.Timestamp(end) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)]
-    if series.empty:
-        raise ValueError("No records fall inside the selected date range.")
+
+if start:
+    start_ts = pd.Timestamp(start)
+    if start_ts.tzinfo is None:
+        start_ts = start_ts.tz_localize("UTC")
+    else:
+        start_ts = start_ts.tz_convert("UTC")
+
+    series = series[series.dt >= start_ts]
+
+if end:
+    end_ts = pd.Timestamp(end)
+    if end_ts.tzinfo is None:
+        end_ts = end_ts.tz_localize("UTC")
+    else:
+        end_ts = end_ts.tz_convert("UTC")
+
+    end_ts = end_ts + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+    series = series[series.dt <= end_ts]
+
+if series.empty:
+    raise ValueError("No records fall inside the selected date range.")
+
+rule = RULES[interval]
+g = (series.set_index("dt")["kwh"].resample(rule)
+     .agg(["sum", "mean", "count"]).reset_index())
+g = g[g["count"] > 0]
+
 
     rule = RULES[interval]
     g = (series.set_index("dt")["kwh"].resample(rule)
