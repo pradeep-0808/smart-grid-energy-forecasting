@@ -418,8 +418,7 @@ g = (series.set_index("dt")["kwh"].resample(rule)
      .agg(["sum", "mean", "count"]).reset_index())
 g = g[g["count"] > 0]
 
-
-    rule = RULES[interval]
+rule = RULES[interval]
     g = (series.set_index("dt")["kwh"].resample(rule)
          .agg(["sum", "mean", "count"]).reset_index())
     g = g[g["count"] > 0]
