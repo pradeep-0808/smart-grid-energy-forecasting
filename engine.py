@@ -329,7 +329,7 @@ def prepare(dataset_id: str, ts_col=None, val_col=None, cumulative=False,
 
     # continuous base series at the dataset's own natural frequency
     freq = BASE_FREQ.get(grain, "D")
-    base = (series.set_index("dt")["kwh"].resample(freq).sum().to_frame("kwh"))
+    base = (series.set_index("dt")["kwh"].resample(freq).sum(min_count=1).to_frame("kwh"))
     base = base.asfreq(pd.tseries.frequencies.to_offset(freq))
     gaps = int(base["kwh"].isna().sum())
     if gaps:
