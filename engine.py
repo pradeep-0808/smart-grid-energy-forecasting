@@ -410,15 +410,10 @@ if end:
     end_ts = end_ts + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
     series = series[series.dt <= end_ts]
 
-if series.empty:
-    raise ValueError("No records fall inside the selected date range.")
+    if series.empty:
+        raise ValueError("No records fall inside the selected date range.")
 
-rule = RULES[interval]
-g = (series.set_index("dt")["kwh"].resample(rule)
-     .agg(["sum", "mean", "count"]).reset_index())
-g = g[g["count"] > 0]
-
-rule = RULES[interval]
+    rule = RULES[interval]
     g = (series.set_index("dt")["kwh"].resample(rule)
          .agg(["sum", "mean", "count"]).reset_index())
     g = g[g["count"] > 0]
