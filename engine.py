@@ -371,10 +371,17 @@ GRAIN_RANK = {"hourly": 0, "daily": 1, "weekly": 2, "monthly": 3,
 
 
 
+
 def aggregate(dataset_id: str, interval: str, start=None, end=None) -> dict:
     prep = prepared(dataset_id)
     grain = prep["grain"]
     series = prep["series"].copy()
+
+    # Normalize timestamps to UTC without timezone information.
+    # This supports both timezone-aware and timezone-naive datasets.
+    series["dt"] = pd.to_datetime(
+        series["dt"], utc=True
+    ).dt.tz_localize(None)
 
     if interval == "annual":
         interval = "yearly"
@@ -395,14 +402,15 @@ def aggregate(dataset_id: str, interval: str, start=None, end=None) -> dict:
             "buckets": [],
         }
 
+    # Filter records using consistent timezone handling.
     if start:
-        start_ts = pd.Timestamp(start)
-        series = series[series.dt >= start_ts]
+        start_ts = pd.to_datetime(start, utc=True).tz_localize(None)
+        series = series[series["dt"] >= start_ts]
 
     if end:
-        end_ts = pd.Timestamp(end)
+        end_ts = pd.to_datetime(end, utc=True).tz_localize(None)
         end_ts = end_ts + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
-        series = series[series.dt <= end_ts]
+        series = series[series["dt"] <= end_ts]
 
     if series.empty:
         raise ValueError("No records fall inside the selected date range.")
@@ -459,8 +467,8 @@ def aggregate(dataset_id: str, interval: str, start=None, end=None) -> dict:
             "peak": buckets[peak_i] if peak_i is not None else None,
             "lowest": buckets[low_i] if low_i is not None else None,
             "period": {
-                "start": series.dt.min().strftime("%Y-%m-%d"),
-                "end": series.dt.max().strftime("%Y-%m-%d"),
+                "start": series["dt"].min().strftime("%Y-%m-%d"),
+                "end": series["dt"].max().strftime("%Y-%m-%d"),
             },
         },
         "note": (
