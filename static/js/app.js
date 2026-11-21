@@ -826,6 +826,7 @@ wireDrop('homeUpload', 'homeFile');
   let simTimer = null;
 
   $('simStart').addEventListener('click', async () => {
+    console.log("START BUTTON CLICKED!");
     const datasetId = $('simDatasetId').value.trim();
 
     if (!datasetId) {
