@@ -818,6 +818,110 @@ wireDrop('homeUpload', 'homeFile');
   setInterval(() => {
     if ($('page-live').classList.contains('active') && $('liveAuto').checked) loadLive();
   }, 5000);
+  
+  // Dataset Live Simulator
+  let simRunning = false;
+  let simCurrent = 0;
+  let simTotal = 0;
+  let simTimer = null;
+
+  $('simStart').addEventListener('click', async () => {
+    const datasetId = $('simDatasetId').value.trim();
+
+    if (!datasetId) {
+      toast('Enter a dataset ID.', 'warn');
+      return;
+    }
+
+    const btn = $('simStart');
+    btn.disabled = true;
+
+    try {
+      const result = await api(
+        '/live-api/simulator/start?dataset_id=' + encodeURIComponent(datasetId),
+        { method: 'POST' }
+      );
+
+      simCurrent = 0;
+      simTotal = result.records;
+      simRunning = true;
+
+      $('simStatus').textContent =
+        'Simulator running · ' + result.filename +
+        ' · Historical data simulation';
+
+      $('simProgressText').textContent = '0 / ' + simTotal;
+      $('simProgressBar').style.width = '0%';
+
+      $('simStart').disabled = true;
+      $('simStop').disabled = false;
+
+      simTimer = setInterval(async () => {
+        if (!simRunning) return;
+
+        try {
+          const next = await api(
+            '/live-api/simulator/next?dataset_id=' +
+            encodeURIComponent(datasetId),
+            { method: 'POST' }
+          );
+
+          if (next.status === 'completed') {
+            clearInterval(simTimer);
+            simTimer = null;
+            simRunning = false;
+            $('simStart').disabled = false;
+            $('simStop').disabled = true;
+            $('simStatus').textContent =
+              'Simulation completed · ' + simTotal + ' records.';
+            return;
+          }
+
+          if (next.status === 'success') {
+            simCurrent = next.progress.current;
+
+            $('simProgressText').textContent =
+              simCurrent + ' / ' + simTotal;
+
+            $('simProgressBar').style.width =
+              (simCurrent / simTotal * 100) + '%';
+
+            $('simStatus').textContent =
+              'Historical simulation running · ' +
+              next.data.energy_consumption.toFixed(2) + ' kWh';
+
+            await loadLive();
+          }
+        } catch (error) {
+          clearInterval(simTimer);
+          simTimer = null;
+          simRunning = false;
+          $('simStart').disabled = false;
+          $('simStop').disabled = true;
+          $('simStatus').textContent = 'Simulator error: ' + error.message;
+        }
+      }, 5000);
+
+    } catch (error) {
+      $('simStatus').textContent = 'Error: ' + error.message;
+      $('simStart').disabled = false;
+    }
+  });
+
+  $('simStop').addEventListener('click', () => {
+    simRunning = false;
+
+    if (simTimer) {
+      clearInterval(simTimer);
+      simTimer = null;
+    }
+
+    $('simStart').disabled = false;
+    $('simStop').disabled = true;
+    $('simStatus').textContent =
+      'Simulation paused · ' + simCurrent + ' / ' + simTotal;
+  });
+
 
   /* ---------------------------------------------------------------- forecast */
   $('fcRun').addEventListener('click', runForecast);
