@@ -393,6 +393,48 @@
           <p>Readings posted to <span class="mono">/live-api/readings</span> are stored in SQLite and
              never synthesised. Use the poster below, or send them from your notebook / meter simulator.</p></div>
         <div class="grid g4" id="liveStats" style="margin-bottom:12px"></div>
+        
+<div class="card" style="margin-bottom:12px">
+  <div class="card-h">
+    <h3>Dataset Live Simulator</h3>
+    <span class="chip">Historical data simulation</span>
+  </div>
+  <div class="card-b">
+    <p class="sub">
+      Simulates historical electricity readings from an uploaded dataset.
+      These are not readings from physical smart meters.
+    </p>
+
+    <div class="field">
+      <label>Dataset ID</label>
+      <input type="text" id="simDatasetId"
+        value="bb5d7d1ccb8d"
+        placeholder="Enter uploaded dataset ID" />
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" id="simStart">Start Simulator</button>
+      <button class="btn ghost" id="simStop" disabled>Stop Simulator</button>
+    </div>
+
+    <div id="simStatus" class="note" style="margin-top:12px">
+      Simulator not started.
+    </div>
+
+    <div style="margin-top:12px">
+      <div class="right" style="justify-content:space-between">
+        <span class="sub">Simulation progress</span>
+        <strong id="simProgressText">0 / 0</strong>
+      </div>
+      <div style="height:8px;background:var(--line);border-radius:10px;overflow:hidden;margin-top:8px">
+        <div id="simProgressBar"
+          style="height:100%;width:0%;background:var(--accent);transition:width .3s">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
         <div class="grid g2u">
           <div class="card">
             <div class="card-h"><h3>Live consumption</h3>
