@@ -621,6 +621,15 @@ def train(dataset_id: str, grain_override=None) -> dict:
         prep["base"].set_index("dt")["kwh"].resample("h").sum().reset_index()
         if grain == "hourly" else prep["base"])
     data = add_features(source, grain)
+    print("===== TRAINING DIAGNOSTICS =====")
+    print("Dataset ID:", dataset_id)
+    print("Detected grain:", prep["grain"])
+    print("Training grain:", grain)
+    print("Raw cleaned rows:", len(prep["series"]))
+    print("Base rows:", len(prep["base"]))
+    print("Source rows:", len(source))
+    print("Feature rows:", len(data))
+    print("================================")
 
     if len(data) < 20:
         raise ValueError(
