@@ -791,21 +791,40 @@ def _forecast_uncached(dataset_id: str, model_name: str = "best", horizon: int =
                             "without inventing intra-day detail. Upload hourly meter data "
                             "to enable 24-hour forecasts.")}
 
-    freq_delta = {"hourly": pd.Timedelta(hours=1), "daily": pd.Timedelta(days=1)}.get(
-        grain, None)
 
-    if grain == "hourly":
-        total_steps = {"hourly": horizon, "daily": horizon * 24, "weekly": horizon * 24 * 7,
-                       "monthly": horizon * 24 * 30, "yearly": horizon * 24 * 365}[interval]
-    else:
-        total_steps = {"daily": horizon, "weekly": horizon * 7, "monthly": horizon * 30,
-                       "yearly": horizon * 365}[interval]
+    freq_delta = {
+        "hourly": pd.Timedelta(hours=1),
+        "daily": pd.Timedelta(days=1)
+    }.get(grain)
 
-    if total_steps > 9000:
+    if freq_delta is None:
         raise ValueError(
-            f"This horizon needs {total_steps:,} recursive steps from a {grain} model, "
-            "which is beyond the 9,000-step limit. Reduce the horizon or choose a coarser "
-            "forecast interval.")
+            f"Calendar forecasting is currently supported for hourly and daily data, "
+            f"not {grain} data."
+        )
+
+    start_when = pd.Timestamp(base["dt"].iloc[-1])
+
+    if start_when.tz is not None:
+        start_when = start_when.tz_convert("UTC").tz_localize(None)
+
+    first_forecast = start_when + freq_delta
+
+    period_freq = {
+        "hourly": "h",
+        "daily": "D",
+        "weekly": "W-MON",
+        "monthly": "M",
+        "yearly": "Y"
+    }[interval]
+
+    first_period = first_forecast.to_period(period_freq)
+    end_exclusive = (first_period + int(horizon)).start_time
+
+    total_steps = int(math.ceil(
+        (end_exclusive - first_forecast) / freq_delta
+    ))
+
 
     # --- vectorised recursive simulation (one tree-pass per batch, not per step) ---
     spec = feature_spec(grain)
@@ -816,9 +835,10 @@ def _forecast_uncached(dataset_id: str, model_name: str = "best", horizon: int =
             f"Only {len(seed)} observations are available; the lag set needs at least "
             f"{min_needed} to forecast.")
 
-    start_when = pd.Timestamp(base["dt"].iloc[-1])
-    delta = freq_delta if freq_delta is not None else pd.Timedelta(days=1)
-    dates = [start_when + delta * (i + 1) for i in range(total_steps)]
+dates = [
+    first_forecast + freq_delta * i
+    for i in range(total_steps)
+]
     preds = _simulate(model, features, spec, seed, dates)
 
     fc = pd.DataFrame({"dt": dates, "kwh": preds})
