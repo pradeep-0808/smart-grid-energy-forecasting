@@ -314,6 +314,7 @@ wireDrop('homeUpload', 'homeFile');
     $('upProfileCard').style.display = '';
     $('upFileName').textContent = p.dataset.filename;
     $('upProfileSub').textContent = p.dataset.rows + ' rows × ' + p.dataset.columns + ' columns';
+    $('upProfileSub').textContent += ' · Dataset ID: ' + p.dataset.id;
 
     $('upStats').innerHTML = [
       ['Rows', fmt(p.dataset.rows, 0)],
