@@ -1158,7 +1158,7 @@ wireDrop('homeUpload', 'homeFile');
       ['4', 'Resample', 'Continuous series at the dataset\'s natural frequency; gaps interpolated and counted.'],
       ['5', 'Features', 'Calendar terms plus lags and shifted rolling mean/std/max — rolling windows use shift(1) so the target is never an input.'],
       ['6', 'Train', 'Linear Regression, Decision Tree and Random Forest on the identical chronological 80/20 split.'],
-      ['7', 'Evaluate', 'MAE, RMSE, R² (plus MAPE) on the unseen later period; best model chosen by MAE.'],
+      ['7', 'Evaluate', 'Linear Regression, Decision Tree and Random Forest are evaluated using MAE, RMSE, R² and MAPE on the unseen later period. The best model is selected using MAE.'],
       ['8', 'Forecast', 'Recursive one-step-ahead predictions; predicted values only, no future actuals.'],
     ].map(([n, t, d]) => `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(27,47,63,.6)">
       <span class="badge dim" style="height:18px">${n}</span>
