@@ -1171,7 +1171,7 @@ wireDrop('homeUpload', 'homeFile');
       'Intervals finer than the source grain (e.g. hourly from daily data) are refused, because the detail does not exist in the data.',
       'No weather, tariff or holiday features — the model uses calendar terms and consumption history only.',
       'Recursive forecast error compounds with horizon length; long horizons are indicative, not operational.',
-      'Live readings are stored only while the server is running (SQLite file on disk); no external meter integration is claimed.',
+      'Live readings and metadata use SQLite on local server storage. On hosting platforms with ephemeral storage, data may be lost after restarts or redeployments. No external physical meter integration is currently provided.',
     ];
     $('aboutLimits').innerHTML = limits.map(t => `<li style="position:relative;padding:5px 0 5px 14px">
       <span style="position:absolute;left:0;top:12px;width:4px;height:4px;border-radius:50%;background:#4b6a80"></span>${esc(t)}</li>`).join('');
