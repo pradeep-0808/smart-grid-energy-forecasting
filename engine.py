@@ -754,44 +754,58 @@ def forecast(dataset_id: str, model_name: str = "best", horizon: int = 7,
     return result
 
 
+
 def _forecast_uncached(dataset_id: str, model_name: str = "best", horizon: int = 7,
                        interval: str = "daily") -> dict:
+
     prep_check = prepared(dataset_id)
+
     if prep_check["grain"] != "hourly" and interval == "hourly":
-        return {"available": False, "interval": interval, "model": model_name,
-                "message": (f"The data is {prep_check['grain']}-level, so hour-level predictions "
-                            "cannot be produced without inventing intra-day detail. Upload "
-                            "hourly meter data to enable 24-hour forecasts.")}
+        return {
+            "available": False,
+            "interval": interval,
+            "model": model_name,
+            "message": (
+                f"The data is {prep_check['grain']}-level, so hour-level predictions "
+                "cannot be produced without inventing intra-day detail. Upload "
+                "hourly meter data to enable 24-hour forecasts."
+            )
+        }
+
     run = get_run(dataset_id)
+
     if model_name in (None, "", "best", "Best Performing Model"):
         model_name = run["best_model"]
+
     if model_name not in MODEL_NAMES:
         raise ValueError(f"model must be one of {MODEL_NAMES} or 'best'")
 
     bundle = load_model(dataset_id, model_name)
-    model, features, grain = bundle["model"], bundle["features"], bundle["grain"]
+    model = bundle["model"]
+    features = bundle["features"]
+    grain = bundle["grain"]
+
     prep = prepared(dataset_id)
     base = prep["base"].copy()
 
-    step = {"hourly": "h", "daily": "D", "weekly": "W", "monthly": "MS",
-            "yearly": "YS", "annual": "YS"}.get(interval)
-    if step is None:
-        raise ValueError("interval must be hourly, daily, weekly, monthly or yearly")
+    if interval not in ("hourly", "daily", "weekly", "monthly", "yearly"):
+        raise ValueError(
+            "interval must be hourly, daily, weekly, monthly or yearly"
+        )
 
-    if grain == "hourly" and interval != "hourly":
-        # fine-grained model, coarser output: forecast hourly then aggregate
-        steps = {"daily": 24, "weekly": 24 * 7, "monthly": 24 * 30,
-                 "yearly": 24 * 365}[interval] * max(1, math.ceil(horizon / (
-                     1 if interval == "daily" else 7 if interval == "weekly"
-                     else 30 if interval == "monthly" else 365)))
-    elif grain != "hourly" and interval == "hourly":
-        return {"available": False, "model": model_name, "interval": interval,
-                "message": ("The trained model works on "
-                            f"{grain} data, so hour-level predictions cannot be produced "
-                            "without inventing intra-day detail. Upload hourly meter data "
-                            "to enable 24-hour forecasts.")}
+    if grain != "hourly" and interval == "hourly":
+        return {
+            "available": False,
+            "model": model_name,
+            "interval": interval,
+            "message": (
+                f"The trained model works on {grain} data, so hour-level "
+                "predictions cannot be produced without inventing intra-day detail. "
+                "Upload hourly meter data to enable 24-hour forecasts."
+            )
+        }
 
-
+    # Determine the time interval of the original dataset.
     freq_delta = {
         "hourly": pd.Timedelta(hours=1),
         "daily": pd.Timedelta(days=1)
@@ -799,10 +813,11 @@ def _forecast_uncached(dataset_id: str, model_name: str = "best", horizon: int =
 
     if freq_delta is None:
         raise ValueError(
-            f"Calendar forecasting is currently supported for hourly and daily data, "
-            f"not {grain} data."
+            f"Calendar forecasting is currently supported for hourly and daily "
+            f"data, not {grain} data."
         )
 
+    # Find the timestamp immediately after the last actual observation.
     start_when = pd.Timestamp(base["dt"].iloc[-1])
 
     if start_when.tz is not None:
@@ -810,6 +825,7 @@ def _forecast_uncached(dataset_id: str, model_name: str = "best", horizon: int =
 
     first_forecast = start_when + freq_delta
 
+    # Define calendar periods for the requested forecast interval.
     period_freq = {
         "hourly": "h",
         "daily": "D",
@@ -821,29 +837,55 @@ def _forecast_uncached(dataset_id: str, model_name: str = "best", horizon: int =
     first_period = first_forecast.to_period(period_freq)
     end_exclusive = (first_period + int(horizon)).start_time
 
+    # Calculate how many hourly or daily predictions are required.
     total_steps = int(math.ceil(
         (end_exclusive - first_forecast) / freq_delta
     ))
 
+    if total_steps <= 0:
+        raise ValueError("The forecast horizon must produce at least one prediction.")
 
-    # --- vectorised recursive simulation (one tree-pass per batch, not per step) ---
+    if total_steps > 9000:
+        raise ValueError(
+            f"This horizon needs {total_steps:,} recursive steps from a {grain} model, "
+            "which is beyond the 9,000-step limit. Reduce the horizon or choose a "
+            "coarser forecast interval."
+        )
+
+    # Prepare historical values for recursive forecasting.
     spec = feature_spec(grain)
     seed = list(base["kwh"].astype(float).to_numpy())
+
     min_needed = max(spec["lags"]) + 1
+
     if len(seed) < min_needed:
         raise ValueError(
             f"Only {len(seed)} observations are available; the lag set needs at least "
-            f"{min_needed} to forecast.")
+            f"{min_needed} to forecast."
+        )
 
-dates = [
-    first_forecast + freq_delta * i
-    for i in range(total_steps)
-]
+    # Generate future timestamps.
+    dates = [
+        first_forecast + freq_delta * i
+        for i in range(total_steps)
+    ]
+
+    # Generate predictions using the trained model.
     preds = _simulate(model, features, spec, seed, dates)
 
+    # Aggregate predictions into the requested calendar interval.
     fc = pd.DataFrame({"dt": dates, "kwh": preds})
-    agg = (fc.set_index("dt")["kwh"].resample(RULES[interval]).sum().reset_index())
+
+    agg = (
+        fc.set_index("dt")["kwh"]
+        .resample(RULES[interval])
+        .sum()
+        .reset_index()
+    )
+
+    # Create readable labels for the forecast table.
     labels = []
+
     for d in agg["dt"]:
         if interval == "hourly":
             labels.append(d.strftime("%Y-%m-%d %H:%M"))
@@ -856,13 +898,40 @@ dates = [
         else:
             labels.append(str(d.year))
 
-    points = [{"label": lab, "date": d.strftime("%Y-%m-%d %H:%M"),
-               "predicted_kwh": round(float(v), 2)}
-              for lab, d, v in zip(labels, agg["dt"], agg["kwh"])]
+    points = [
+        {
+            "label": lab,
+            "date": d.strftime("%Y-%m-%d %H:%M"),
+            "predicted_kwh": round(float(v), 2)
+        }
+        for lab, d, v in zip(labels, agg["dt"], agg["kwh"])
+    ]
 
     peak = max(points, key=lambda p: p["predicted_kwh"]) if points else None
     low = min(points, key=lambda p: p["predicted_kwh"]) if points else None
-    historical_mean = float(base["kwh"].tail(min(len(base), 30)).mean())
+
+    # Compare forecasts with historical consumption at the same interval.
+    historical = base.set_index("dt")["kwh"]
+
+    historical_agg = historical.resample(RULES[interval]).sum()
+
+    historical_mean = (
+        float(historical_agg.tail(horizon).mean())
+        if not historical_agg.empty else 0.0
+    )
+
+    average_forecast = (
+        float(np.mean([p["predicted_kwh"] for p in points]))
+        if points else 0.0
+    )
+
+    change_vs_recent = (
+        round(
+            (average_forecast - historical_mean) / historical_mean * 100,
+            2
+        )
+        if historical_mean else None
+    )
 
     return {
         "available": True,
@@ -873,19 +942,21 @@ dates = [
         "points": points,
         "summary": {
             "horizon_points": len(points),
-            "total_predicted_kwh": round(sum(p["predicted_kwh"] for p in points), 2),
-            "average_predicted_kwh": round(float(np.mean([p["predicted_kwh"] for p in points])), 2),
+            "total_predicted_kwh": round(
+                sum(p["predicted_kwh"] for p in points), 2
+            ),
+            "average_predicted_kwh": round(average_forecast, 2),
             "peak": peak,
             "lowest": low,
             "recent_actual_average_kwh": round(historical_mean, 2),
-            "change_vs_recent_pct": round(
-                (float(np.mean([p["predicted_kwh"] for p in points])) - historical_mean)
-                / historical_mean * 100, 2) if historical_mean else None,
+            "change_vs_recent_pct": change_vs_recent
         },
-        "method": ("Recursive one-step-ahead forecasting: each prediction is appended to the "
-                   "history and lag/rolling features are rebuilt from predicted values only — "
-                   "no future actual values are used."),
-        "test_metrics": run["metrics"][model_name],
+        "method": (
+            "Recursive one-step-ahead forecasting: each prediction is appended "
+            "to the history and lag/rolling features are rebuilt from predicted "
+            "values only — no future actual values are used."
+        ),
+        "test_metrics": run["metrics"][model_name]
     }
 
 
